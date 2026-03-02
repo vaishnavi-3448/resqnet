@@ -25,7 +25,8 @@ app.use(cookieParser());
 
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
-
+const requestRoutes = require('./routes/requestRoutes');
+app.use('/api/requests', requestRoutes);
 app.get('/', (req, res) => {
   res.json({ message: 'ResQNet API is running' });
 });
