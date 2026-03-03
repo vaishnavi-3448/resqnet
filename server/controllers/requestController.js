@@ -1,8 +1,5 @@
 const Request = require('../models/Request');
 
-// @desc Create a new relief request
-// @route POST /api/requests
-// @access victim only
 const createRequest = async (req, res) => {
   try {
     const { type, description, coordinates, address, priority, peopleCount } = req.body;
@@ -13,7 +10,7 @@ const createRequest = async (req, res) => {
       description,
       location: {
         type: 'Point',
-        coordinates, // [longitude, latitude]
+        coordinates,
         address
       },
       priority,
@@ -26,9 +23,6 @@ const createRequest = async (req, res) => {
   }
 };
 
-// @desc Get all pending requests (for volunteers/ngos)
-// @route GET /api/requests
-// @access volunteer, ngo, admin
 const getAllRequests = async (req, res) => {
   try {
     const requests = await Request.find({ status: 'pending' })
@@ -41,9 +35,6 @@ const getAllRequests = async (req, res) => {
   }
 };
 
-// @desc Get requests by the logged in victim
-// @route GET /api/requests/my
-// @access victim only
 const getMyRequests = async (req, res) => {
   try {
     const requests = await Request.find({ victim: req.user._id })
@@ -56,9 +47,6 @@ const getMyRequests = async (req, res) => {
   }
 };
 
-// @desc Get a single request by ID
-// @route GET /api/requests/:id
-// @access protected
 const getRequestById = async (req, res) => {
   try {
     const request = await Request.findById(req.params.id)
@@ -75,9 +63,6 @@ const getRequestById = async (req, res) => {
   }
 };
 
-// @desc Claim a request (volunteer/ngo)
-// @route PUT /api/requests/:id/claim
-// @access volunteer, ngo
 const claimRequest = async (req, res) => {
   try {
     const request = await Request.findById(req.params.id);
@@ -94,9 +79,26 @@ const claimRequest = async (req, res) => {
     request.claimedBy = req.user._id;
     request.updatedAt = Date.now();
 
+    // Save victim ID before populating
+    const victimId = request.victim.toString();
+
     await request.save();
 
-    const populated = await request.populate('claimedBy', 'name phone email role');
+    const populated = await request.populate([
+      { path: 'claimedBy', select: 'name phone email role' },
+      { path: 'victim', select: 'name phone email' }
+    ]);
+
+    const io = req.app.get('io');
+    console.log('Emitting to room:', victimId);
+    console.log('IO:', io ? 'exists' : 'not found');
+    const sockets = await io.in(victimId).fetchSockets();
+    console.log('Sockets in room:', sockets.length);
+
+    io.to(victimId).emit('requestClaimed', {
+      message: `Your ${request.type} request has been claimed by ${req.user.name}`,
+      request: populated
+    });
 
     res.json(populated);
   } catch (error) {
@@ -104,9 +106,6 @@ const claimRequest = async (req, res) => {
   }
 };
 
-// @desc Mark a request as resolved
-// @route PUT /api/requests/:id/resolve
-// @access volunteer, ngo, admin
 const resolveRequest = async (req, res) => {
   try {
     const request = await Request.findById(req.params.id);
@@ -119,23 +118,37 @@ const resolveRequest = async (req, res) => {
       return res.status(400).json({ message: 'Only claimed requests can be resolved' });
     }
 
+    const victimId = request.victim.toString();
+
     request.status = 'resolved';
     request.updatedAt = Date.now();
 
     await request.save();
 
-    res.json(request);
+    const populated = await request.populate([
+      { path: 'claimedBy', select: 'name phone email role' },
+      { path: 'victim', select: 'name phone email' }
+    ]);
+
+    const io = req.app.get('io');
+    console.log('Emitting to room:', victimId);
+    const sockets = await io.in(victimId).fetchSockets();
+    console.log('Sockets in room:', sockets.length);
+
+    io.to(victimId).emit('requestResolved', {
+      message: `Your ${request.type} request has been resolved!`,
+      request: populated
+    });
+
+    res.json(populated);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc Get nearby requests within a radius
-// @route GET /api/requests/nearby?lng=xx&lat=xx&radius=xx
-// @access volunteer, ngo
 const getNearbyRequests = async (req, res) => {
   try {
-    const { lng, lat, radius = 10000 } = req.query; // radius in meters, default 10km
+    const { lng, lat, radius = 10000 } = req.query;
 
     const requests = await Request.find({
       status: 'pending',

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Socket Test</title>
+</head>
+<body>
+  <h2>Socket.io Test Client</h2>
+  <p>Status: <span id="status">Disconnected</span></p>
+  <p>Notification: <span id="notification">None</span></p>
+
+  <script src="http://localhost:5000/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('http://localhost:5000');
+
+    socket.on('connect', () => {
+      document.getElementById('status').innerText = 'Connected: ' + socket.id;
+
+      // Join room as the victim user
+      // Replace this with your actual victim user ID
+      socket.emit('join', '69a5e2bcc94e0cd2a7d5c91c');
+    });
+
+    socket.on('requestClaimed', (data) => {
+      document.getElementById('notification').innerText = data.message;
+      console.log('Request claimed event:', data);
+    });
+
+    socket.on('requestResolved', (data) => {
+      document.getElementById('notification').innerText = data.message;
+      console.log('Request resolved event:', data);
+    });
+  </script>
+</body>
+</html>
