@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
+import RequestMap from '../components/RequestMap'
 
 const API = 'http://localhost:5000/api'
 
@@ -109,6 +110,12 @@ const VolunteerDashboard = () => {
               <p className="text-gray-500 text-sm mt-1">{stat.label}</p>
             </div>
           ))}
+        </div>
+
+        {/* Map */}
+        <div className="mb-8">
+          <h3 className="text-xl font-bold mb-4">Live Map</h3>
+          <RequestMap requests={requests} onClaim={handleClaim} />
         </div>
 
         {/* Filter */}

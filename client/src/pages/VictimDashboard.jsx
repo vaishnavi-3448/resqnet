@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
 import useSocket from '../hooks/useSocket'
+import { geocodeAddress } from '../utils/geocode'
 
 const API = 'http://localhost:5000/api'
 
@@ -50,26 +51,39 @@ const VictimDashboard = () => {
   )
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSubmitting(true)
-    try {
-      await axios.post(`${API}/requests`, formData, { withCredentials: true })
-      setShowForm(false)
-      fetchMyRequests()
-      setFormData({
-        type: 'food',
-        description: '',
-        address: '',
-        coordinates: [80.2707, 13.0827],
-        priority: 'medium',
-        peopleCount: 1
-      })
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setSubmitting(false)
+  e.preventDefault()
+  setSubmitting(true)
+  try {
+    let coordinates = [80.2707, 13.0827] // default Chennai
+
+    if (formData.address) {
+      const geo = await geocodeAddress(formData.address)
+      if (geo) {
+        coordinates = [geo.lng, geo.lat] // [longitude, latitude]
+      }
     }
+
+    await axios.post(`${API}/requests`, {
+      ...formData,
+      coordinates
+    }, { withCredentials: true })
+
+    setShowForm(false)
+    fetchMyRequests()
+    setFormData({
+      type: 'food',
+      description: '',
+      address: '',
+      coordinates: [80.2707, 13.0827],
+      priority: 'medium',
+      peopleCount: 1
+    })
+  } catch (err) {
+    console.error(err)
+  } finally {
+    setSubmitting(false)
   }
+}
 
   const statusColor = {
     pending: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
